@@ -85,61 +85,28 @@ void sTemplateNPC::LearnTemplateTalents(Player* player, const std::string& sTale
         if (talentTemplate->playerClass != GetClassString(player).c_str() || talentTemplate->playerSpec != sTalents)
             continue;
 
-        uint32 spellId = talentTemplate->talentId;
-        while (spellId)
+        auto LearnHighestRankForLevel = [player](uint32 baseSpellId)
         {
-            const SpellInfo* info = sSpellMgr->GetSpellInfo(spellId);
-            if (!info || info->BaseLevel > player->GetLevel())
-                break;
+            for (uint32 spellId = baseSpellId; spellId; spellId = sSpellMgr->GetNextSpellInChain(spellId))
+            {
+                const SpellInfo* info = sSpellMgr->GetSpellInfo(spellId);
+                if (!info || info->BaseLevel > player->GetLevel())
+                     break;
 
-            player->learnSpell(spellId); // rank > level? stop
-            spellId = sSpellMgr->GetNextSpellInChain(spellId);
-        }
+                player->learnSpell(spellId);
+            }
+        };
 
+        LearnHighestRankForLevel(talentTemplate->talentId);
         player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
 
-        // Druid Mangle talent
-        if (talentTemplate->talentId == 33917)
-        {
-            player->CastSpell(player, 33917, true); // casts Mangle 33917, which teaches 'Mangle (Cat)' and 'Mangle (Bear)'
-
-            if (player->GetLevel() >= 58)
-                player->learnSpell(33982); // Mangle – Cat  (rank 2)
-                player->learnSpell(33986); // Mangle – Bear (rank 2)
-
-            if (player->GetLevel() >= 68)
-                player->learnSpell(33983); // Mangle – Cat  (rank 3)
-                player->learnSpell(33987); // Mangle – Bear (rank 3)
-
-            if (player->GetLevel() >= 75)
-                player->learnSpell(48565); // Mangle – Cat  (rank 4)
-                player->learnSpell(48563); // Mangle – Bear (rank 4)
-
-            if (player->GetLevel() >= 80)
-                player->learnSpell(48566); // Mangle – Cat  (rank 5)
-                player->learnSpell(48564); // Mangle – Bear (rank 5)
-        }
-
-        /*
+        // Mangle (druid talent) special case
         if (talentTemplate->talentId == 33917)
         {
             player->CastSpell(player, 33917, true);
-
-            auto LearnHighestRankForLevel = [player](uint32 baseRankId)
-            {
-                 for (uint32 id = baseRankId; id; id = sSpellMgr->GetNextSpellInChain(id))
-                 {
-                     const SpellInfo* info = sSpellMgr->GetSpellInfo(id);
-                     if (!info || info->BaseLevel > player->GetLevel())
-                         break;
-
-                     player->learnSpell(id);
-                 }
-            };
-
-            LearnHighestRankForLevel(33876);   // Mangle –  Cat (Rank 1)
-            LearnHighestRankForLevel(33878);   // Mangle –  Bear (Rank 1)
-        }*/
+            LearnHighestRankForLevel(33876); // Mangle – Cat (Rank 1)
+            LearnHighestRankForLevel(33878); // Mangle – Bear (Rank 1)
+        }
     }
 
     player->InitTalentForLevel();
