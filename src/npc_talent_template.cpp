@@ -5,6 +5,7 @@
 #include "Creature.h"
 #include "ReputationMgr.h"
 #include "ScriptedGossip.h"
+#include "SpellMgr.h"
 
 #define DEFAULT_GOSSIP_ACTION_ENTRY 9999 // default value for gossipAction when creating new template
 
@@ -66,14 +67,81 @@ void sTemplateNPC::RemoveAllGlyphs(Player* player)
                 }
 }
 
+//void sTemplateNPC::LearnTemplateTalents(Player* player, const std::string& sTalents)
+//{
+//    for (auto const& talentTemplate : talentContainer)
+//        if (talentTemplate->playerClass == GetClassString(player).c_str() && talentTemplate->playerSpec == sTalents)
+//        {
+//            player->learnSpellHighRank(talentTemplate->talentId);
+//            player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
+//        }
+//    player->InitTalentForLevel();
+//}
+
 void sTemplateNPC::LearnTemplateTalents(Player* player, const std::string& sTalents)
 {
     for (auto const& talentTemplate : talentContainer)
-        if (talentTemplate->playerClass == GetClassString(player).c_str() && talentTemplate->playerSpec == sTalents)
+    {
+        if (talentTemplate->playerClass != GetClassString(player).c_str() || talentTemplate->playerSpec != sTalents)
+            continue;
+
+        uint32 spellId = talentTemplate->talentId;
+        while (spellId)
         {
-            player->learnSpellHighRank(talentTemplate->talentId);
-            player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
+            const SpellInfo* info = sSpellMgr->GetSpellInfo(spellId);
+            if (!info || info->BaseLevel > player->GetLevel())
+                break;
+
+            player->learnSpell(spellId); // rank > level? stop
+            spellId = sSpellMgr->GetNextSpellInChain(spellId);
         }
+
+        player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
+
+        // Druid Mangle talent
+        if (talentTemplate->talentId == 33917)
+        {
+            player->CastSpell(player, 33917, true); // casts Mangle 33917, which teaches 'Mangle (Cat)' and 'Mangle (Bear)'
+
+            if (player->GetLevel() >= 58)
+                player->learnSpell(33982); // Mangle – Cat  (rank 2)
+                player->learnSpell(33986); // Mangle – Bear (rank 2)
+
+            if (player->GetLevel() >= 68)
+                player->learnSpell(33983); // Mangle – Cat  (rank 3)
+                player->learnSpell(33987); // Mangle – Bear (rank 3)
+
+            if (player->GetLevel() >= 75)
+                player->learnSpell(48565); // Mangle – Cat  (rank 4)
+                player->learnSpell(48563); // Mangle – Bear (rank 4)
+
+            if (player->GetLevel() >= 80)
+                player->learnSpell(48566); // Mangle – Cat  (rank 5)
+                player->learnSpell(48564); // Mangle – Bear (rank 5)
+        }
+
+        /*
+        if (talentTemplate->talentId == 33917)
+        {
+            player->CastSpell(player, 33917, true);
+
+            auto LearnHighestRankForLevel = [player](uint32 baseRankId)
+            {
+                 for (uint32 id = baseRankId; id; id = sSpellMgr->GetNextSpellInChain(id))
+                 {
+                     const SpellInfo* info = sSpellMgr->GetSpellInfo(id);
+                     if (!info || info->BaseLevel > player->GetLevel())
+                         break;
+
+                     player->learnSpell(id);
+                 }
+            };
+
+            LearnHighestRankForLevel(33876);   // Mangle –  Cat (Rank 1)
+            LearnHighestRankForLevel(33878);   // Mangle –  Bear (Rank 1)
+        }*/
+    }
+
     player->InitTalentForLevel();
 }
 
@@ -478,7 +546,7 @@ public:
     {
         for (auto const& indexTemplate : sTemplateNpcMgr->indexContainer)
             if (indexTemplate->playerClass == sTemplateNpcMgr->GetClassString(player).c_str() && (indexTemplate->minLevel <= player->GetLevel() && player->GetLevel() <= indexTemplate->maxLevel))
-                AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, indexTemplate->gossipText, GOSSIP_SENDER_MAIN, indexTemplate->gossipAction);
+                AddGossipItemFor(player, GOSSIP_ICON_BATTLE, indexTemplate->gossipText, GOSSIP_SENDER_MAIN, indexTemplate->gossipAction);
 
         // Extra gossip
         if (sTemplateNpcMgr->enableResetTalents || sTemplateNpcMgr->enableRemoveAllGlyphs || sTemplateNpcMgr->enableDestroyEquippedGear)
@@ -486,9 +554,9 @@ public:
 
         if (sTemplateNpcMgr->enableResetTalents)
         {
-            AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|cff00ff00|TInterface\\icons\\Trade_Engineering:30:30|t|r Reset Talents", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_RESET_TALENTS, "Are you sure you want to reset your talents?", 0, false);
+            AddGossipItemFor(player, GOSSIP_ICON_TRAINER, "|cff00ff00|TInterface\\icons\\Trade_Engineering:30:30|t|r Reset Talents", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_RESET_TALENTS, "Are you sure you want to reset your talents?", 0, false);
             if (player->getClass() == CLASS_HUNTER)
-                AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|cff00ff00|TInterface\\icons\\ability_hunter_beasttaming:30:30|t|r Reset Pet Talents", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_RESET_PET_TALENTS, "Are you sure you want to reset your pet's talents?", 0, false);
+                AddGossipItemFor(player, GOSSIP_ICON_TRAINER, "|cff00ff00|TInterface\\icons\\ability_hunter_beasttaming:30:30|t|r Reset Pet Talents", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_RESET_PET_TALENTS, "Are you sure you want to reset your pet's talents?", 0, false);
         }
 
         if (sTemplateNpcMgr->enableRemoveAllGlyphs)
