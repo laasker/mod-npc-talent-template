@@ -5,8 +5,16 @@
 #include "Creature.h"
 #include "ReputationMgr.h"
 #include "ScriptedGossip.h"
+#include "SpellMgr.h"
 
 #define DEFAULT_GOSSIP_ACTION_ENTRY 9999 // default value for gossipAction when creating new template
+
+enum TalentsAndSpells
+{
+    TALENT_MANGLE = 33917,
+    SPELL_MANGLE_CAT = 33876, // Rank 1
+    SPELL_MANGLE_BEAR = 33878 // Rank 1
+};
 
 void sTemplateNPC::LearnPlateMailSpells(Player *player)
 {
@@ -73,6 +81,25 @@ void sTemplateNPC::LearnTemplateTalents(Player* player, const std::string& sTale
         {
             player->learnSpellHighRank(talentTemplate->talentId);
             player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
+
+            if (talentTemplate->talentId == TALENT_MANGLE)
+            {
+                player->CastSpell(player, TALENT_MANGLE, true); // teaches 'Mangle (Cat)' and 'Mangle (Bear)'
+
+                // Learn highest rank of Mangle
+                auto LearnHighestRankForLevel = [player](uint32 baseRankId)
+                {
+                    for (uint32 id = baseRankId; id; id = sSpellMgr->GetNextSpellInChain(id))
+                    {
+                        const SpellInfo* info = sSpellMgr->GetSpellInfo(id);
+                        if (!info || info->BaseLevel > player->GetLevel())
+                               break;
+                        player->learnSpell(id);
+                    }
+                };
+                LearnHighestRankForLevel(SPELL_MANGLE_CAT);
+                LearnHighestRankForLevel(SPELL_MANGLE_BEAR);
+            }
         }
     player->InitTalentForLevel();
 }
