@@ -72,8 +72,27 @@ void sTemplateNPC::RemoveAllGlyphs(Player* player)
 //    for (auto const& talentTemplate : talentContainer)
 //        if (talentTemplate->playerClass == GetClassString(player).c_str() && talentTemplate->playerSpec == sTalents)
 //        {
-//            player->learnSpellHighRank(talentTemplate->talentId);
+//            //player->learnSpellHighRank(talentTemplate->talentId); // alem de dar learn em spells acima do lvl do player, ta dando learn em Talents
 //            player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
+//
+//            if (talentTemplate->talentId == 33917)
+//            {
+//                player->CastSpell(player, 33917, true); // teaches 'Mangle (Cat)' and 'Mangle (Bear)'
+//
+//                // Learn highest rank of Mangle
+//                auto LearnHighestRankForLevel = [player](uint32 baseRankId)
+//                    {
+//                        for (uint32 id = baseRankId; id; id = sSpellMgr->GetNextSpellInChain(id))
+//                        {
+//                            const SpellInfo* info = sSpellMgr->GetSpellInfo(id);
+//                            if (!info || info->BaseLevel > player->GetLevel())
+//                                break;
+//                            player->learnSpell(id);
+//                        }
+//                    };
+//                LearnHighestRankForLevel(33876);
+//                LearnHighestRankForLevel(33878);
+//            }
 //        }
 //    player->InitTalentForLevel();
 //}
@@ -82,30 +101,33 @@ void sTemplateNPC::LearnTemplateTalents(Player* player, const std::string& sTale
 {
     for (auto const& talentTemplate : talentContainer)
     {
-        if (talentTemplate->playerClass != GetClassString(player).c_str() || talentTemplate->playerSpec != sTalents)
-            continue;
-
-        auto LearnHighestRankForLevel = [player](uint32 baseSpellId)
+        if (talentTemplate->playerClass == GetClassString(player).c_str() && talentTemplate->playerSpec == sTalents)
         {
-            for (uint32 spellId = baseSpellId; spellId; spellId = sSpellMgr->GetNextSpellInChain(spellId))
+            auto LearnHighestRankForLevel = [player](uint32 baseSpellId)
             {
-                const SpellInfo* info = sSpellMgr->GetSpellInfo(spellId);
-                if (!info || info->BaseLevel > player->GetLevel())
-                     break;
+                for (uint32 spellId = baseSpellId; spellId; spellId = sSpellMgr->GetNextSpellInChain(spellId))
+                {
+                    const SpellInfo* info = sSpellMgr->GetSpellInfo(spellId);
+                    if (!info || info->BaseLevel > player->GetLevel())
+                        break;
 
-                player->learnSpell(spellId);
+                    if (info->IsPassive())
+                        continue;
+
+                    player->learnSpell(spellId);
+                }
+            };
+
+            player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
+            LearnHighestRankForLevel(talentTemplate->talentId);
+
+            // Mangle (druid talent) special case
+            if (talentTemplate->talentId == 33917)
+            {
+                player->CastSpell(player, 33917, true);
+                LearnHighestRankForLevel(33876); // Mangle – Cat (Rank 1)
+                LearnHighestRankForLevel(33878); // Mangle – Bear (Rank 1)
             }
-        };
-
-        LearnHighestRankForLevel(talentTemplate->talentId);
-        player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
-
-        // Mangle (druid talent) special case
-        if (talentTemplate->talentId == 33917)
-        {
-            player->CastSpell(player, 33917, true);
-            LearnHighestRankForLevel(33876); // Mangle – Cat (Rank 1)
-            LearnHighestRankForLevel(33878); // Mangle – Bear (Rank 1)
         }
     }
 
@@ -566,10 +588,21 @@ public:
                 break;
 
             case GOSSIP_ACTION_RESET_TALENTS:
-                player->resetTalents(true);
-                player->SendTalentsInfoData(false);
-                player->GetSession()->SendAreaTriggerMessage(LANG_RESET_TALENTS);
-                CloseGossipMenuFor(player);
+
+                if (player->InBattleground() || player->InArena() || player->InBattlegroundQueueForBattlegroundQueueType((BattlegroundQueueTypeId)12) /*solo3v3*/ ||
+                    player->InBattlegroundQueueForBattlegroundQueueType((BattlegroundQueueTypeId)11)) // solo1v1
+                {
+                    ChatHandler(player->GetSession()).SendNotification("You can't reset your talents while in queue for solo arena.");
+                    CloseGossipMenuFor(player);
+                    return false;
+                }
+                else
+                {
+                    player->resetTalents(true);
+                    player->SendTalentsInfoData(false);
+                    player->GetSession()->SendAreaTriggerMessage(LANG_RESET_TALENTS);
+                    CloseGossipMenuFor(player);
+                }
                 break;
 
             case GOSSIP_ACTION_RESET_PET_TALENTS:
