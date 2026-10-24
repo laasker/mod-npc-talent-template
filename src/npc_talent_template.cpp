@@ -104,6 +104,43 @@ void sTemplateNPC::LearnTemplateTalents(Player* player, const std::string& sTale
     player->InitTalentForLevel();
 }
 
+//void sTemplateNPC::LearnTemplateTalents(Player* player, const std::string& sTalents)
+//{
+//    for (auto const& talentTemplate : talentContainer)
+//    {
+//        if (talentTemplate->playerClass == GetClassString(player).c_str() && talentTemplate->playerSpec == sTalents)
+//        {
+//            auto LearnHighestRankForLevel = [player](uint32 baseSpellId)
+//                {
+//                    for (uint32 spellId = baseSpellId; spellId; spellId = sSpellMgr->GetNextSpellInChain(spellId))
+//                    {
+//                        const SpellInfo* info = sSpellMgr->GetSpellInfo(spellId);
+//                        if (!info || info->BaseLevel > player->GetLevel())
+//                            break;
+//
+//                        if (info->IsPassive())
+//                            continue;
+//
+//                        player->learnSpell(spellId);
+//                    }
+//                };
+//
+//            player->addTalent(talentTemplate->talentId, player->GetActiveSpecMask(), 0);
+//            LearnHighestRankForLevel(talentTemplate->talentId);
+//
+//            // Mangle (druid talent) special case
+//            if (talentTemplate->talentId == 33917)
+//            {
+//                player->CastSpell(player, 33917, true);
+//                LearnHighestRankForLevel(33876); // Mangle – Cat (Rank 1)
+//                LearnHighestRankForLevel(33878); // Mangle – Bear (Rank 1)
+//            }
+//        }
+//    }
+//
+//    player->InitTalentForLevel();
+//}
+
 void sTemplateNPC::LearnTemplateGlyphs(Player* player, const std::string& sGlyphs)
 {
     for (auto const& glyphTemplate : glyphContainer)
