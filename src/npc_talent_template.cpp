@@ -466,6 +466,13 @@ void sTemplateNPC::SatisfyExtraGearRequirements(Player* player, const std::strin
 
 void sTemplateNPC::ApplyTemplate(Player* player, IndexTemplate* indexTemplate)
 {
+    if (player->InBattlegroundQueueForBattlegroundQueueType((BattlegroundQueueTypeId)12) /*solo3v3*/ || player->InBattlegroundQueueForBattlegroundQueueType((BattlegroundQueueTypeId)11)) // solo1v1
+    {
+        ChatHandler(player->GetSession()).SendNotification("You can't select a template while in queue for solo arena.");
+        CloseGossipMenuFor(player);
+        return;
+    }
+
     TemplateFlags flag = indexTemplate->mask;
 
     bool canApply = true;
@@ -595,10 +602,19 @@ public:
                 break;
 
             case GOSSIP_ACTION_RESET_TALENTS:
-                player->resetTalents(true);
-                player->SendTalentsInfoData(false);
-                player->GetSession()->SendAreaTriggerMessage(LANG_RESET_TALENTS);
-                CloseGossipMenuFor(player);
+                if (player->InBattlegroundQueueForBattlegroundQueueType((BattlegroundQueueTypeId)12) /*solo3v3*/ || player->InBattlegroundQueueForBattlegroundQueueType((BattlegroundQueueTypeId)11)) // solo1v1
+                {
+                    ChatHandler(player->GetSession()).SendNotification("You can't reset your talents while in queue for solo arena.");
+                    CloseGossipMenuFor(player);
+                    return false;
+                }
+                else
+                {
+                    player->resetTalents(true);
+                    player->SendTalentsInfoData(false);
+                    player->GetSession()->SendAreaTriggerMessage(LANG_RESET_TALENTS);
+                    CloseGossipMenuFor(player);
+                }
                 break;
 
             case GOSSIP_ACTION_RESET_PET_TALENTS:
